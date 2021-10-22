@@ -9,39 +9,103 @@ from collections import defaultdict
 from contextlib import contextmanager
 
 from dataclasses import dataclass
-from typing import List, Tuple, Union, Iterator, Dict
+from typing import List, Tuple, Union, Iterator, Dict, Optional
 
 try:
     import numpy
 except ImportError as e:
-    raise RuntimeError("Numpy is required to use cvat_reader") from e
+    raise RuntimeError("Numpy is required to use cvat_reader. You can install it using 'pip install numpy'") from e
 
 try:
     import cv2
 except ImportError as e:
-    raise RuntimeError("cv2 is required to use cvat_reader") from e
+    raise RuntimeError("cv2 is required to use cvat_reader. You can install it using 'pip install opencv-python'") from e
 
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
-class PointAnnotation:
+class Annotation:
+    frame_id: int
+    track_id: int
     label: str
-    point: Tuple[int, int]
+    bounding_box: Tuple[Tuple[int, int], Tuple[int, int]]
+    interpolated: bool
+
+    @classmethod
+    def from_interpolation(cls, begin_annotation: 'Annotation', end_annotation: 'Annotation', frame_id: int) -> 'Annotation':
+        relative_offset: float = (frame_id - begin_annotation.frame_id) / (end_annotation.frame_id - begin_annotation.frame_id)
+
+        return cls(
+            frame_id=frame_id,
+            track_id=begin_annotation.track_id,
+            label=begin_annotation.label,
+            interpolated=True,
+            bounding_box=(
+                (
+                        int((end_annotation.bounding_box[0][0] - begin_annotation.bounding_box[0][0]) * relative_offset
+                        + begin_annotation.bounding_box[0][0]),
+                        int((end_annotation.bounding_box[0][1] - begin_annotation.bounding_box[0][1]) * relative_offset
+                        + begin_annotation.bounding_box[0][1])
+                ),
+                (
+                        int((end_annotation.bounding_box[1][0] - begin_annotation.bounding_box[1][0]) * relative_offset
+                        + begin_annotation.bounding_box[1][0]),
+
+                        int((end_annotation.bounding_box[1][1] - begin_annotation.bounding_box[1][1]) * relative_offset
+                        + begin_annotation.bounding_box[1][1])
+                )
+            )
+        )
 
 
 @dataclass
-class BBoxAnnotation:
-    label: str
-    bounding_box: Tuple[Tuple[int, int], Tuple[int, int]]
+class Track:
+    track_id: int
+    annotations: List[Annotation]
+
+    @property
+    def first_frame_id(self) -> int:
+        return self.annotations[0].frame_id
+
+    @property
+    def last_frame_id(self) -> int:
+        return self.annotations[-1].frame_id
+
+    @property
+    def label(self) -> str:
+        return self.annotations[0].label
+
+    def get_annotation(self, frame_id: int) -> Optional[Annotation]:
+        if frame_id < self.first_frame_id:
+            return None
+
+        if frame_id > self.last_frame_id:
+            return None
+
+        for i, annotation in enumerate(self.annotations):
+            if annotation.frame_id == frame_id:
+                return annotation
+
+            # i CANNOT be 0 due to previous checks
+            if annotation.frame_id > frame_id:
+                prev_annotation = self.annotations[i - 1]
+                return Annotation.from_interpolation(
+                    begin_annotation=prev_annotation,
+                    end_annotation=annotation,
+                    frame_id=frame_id
+                )
+
+        # This shouldn't happen
+        return None
 
 
 @dataclass
 class Frame:
     frame_id: int
     image: numpy.array
-    annotations: Dict[str, List[Union[BBoxAnnotation, PointAnnotation]]]
+    annotations: List[Annotation]
 
 
 @contextmanager
@@ -62,55 +126,68 @@ class Dataset:
         with open(annotations_file, 'r') as fp:
             json_data = json.load(fp)
 
-            self.annotations_per_frame = defaultdict(lambda:defaultdict(list))
+            self.tracks: List[Track] = []
 
-            for track in json_data[0]['tracks']:
+            for track_id, track in enumerate(json_data[0]['tracks']):
+                annotations = []
                 for shape in track['shapes']:
                     frame_id = shape['frame']
 
-                    if shape['type'] == 'points':
-                        x, y = shape['points']
-                        annotation = PointAnnotation(
-                            label=track['label'],
-                            point=(int(x), int(y))
-                        )
-                    elif shape['type'] == 'rectangle':
+                    if shape['type'] == 'rectangle':
                         x1, y1, x2, y2 = shape['points']
-                        annotation = BBoxAnnotation(
+                        annotation = Annotation(
+                            frame_id=frame_id,
+                            track_id=track_id,
                             label=track['label'],
                             bounding_box=(
                                 (int(x1), int(y1)), (int(x2), int(y2))
-                            )
+                            ),
+                            interpolated=False
                         )
+                        annotations.append(annotation)
                     else:
                         logger.debug(f"Skipping annotation of type {shape['type']}")
 
-                    self.annotations_per_frame[frame_id][annotation.label].append(annotation)
+                if annotations:
+                    self.tracks.append(
+                        Track(
+                            track_id=track_id,
+                            annotations=annotations
+                        )
+                    )
 
         self.capture = cv2.VideoCapture(video_file)
         self.frame_count = int(self.capture.get(cv2.cv2.CAP_PROP_FRAME_COUNT))
         self.fps = self.capture.get(cv2.cv2.CAP_PROP_FPS)
-        self.current_frame_id = 0
+        self.current_frame = 0
 
     def seek(self, frame_id: int):
-        self.current_frame_id = frame_id
-        self.capture.set(cv2.cv2.CAP_PROP_POS_FRAMES, self.current_frame_id)
+        self.capture.set(cv2.cv2.CAP_PROP_POS_FRAMES, frame_id)
+        self.current_frame = frame_id
 
     def seek_first_annotation(self):
-        self.seek(min(self.annotations_per_frame.keys()))
+        first_frame_id = min(
+            track.first_frame_id for track in self.tracks
+        )
+        self.seek(first_frame_id)
 
     def __iter__(self) -> Iterator[Frame]:
         return self
 
     def __next__(self) -> Frame:
-        frame_id = self.current_frame_id
+        self.current_frame = frame_id = self.capture.get(cv2.cv2.CAP_PROP_POS_FRAMES)
         success, image = self.capture.read()
-        self.current_frame_id += 1
+
+        annotations = [
+            track.get_annotation(frame_id)
+            for track in self.tracks
+            if track
+        ]
 
         return Frame(
             frame_id=frame_id,
             image=image,
-            annotations=self.annotations_per_frame.get(frame_id, [])
+            annotations=[annotation for annotation in annotations if annotation]
         )
 
     def close(self):
