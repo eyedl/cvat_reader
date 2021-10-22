@@ -6,6 +6,12 @@ The cvat format is usefull because it contains the original video file. The orig
 1. The original video file is much better compressed than a bunch of image files.
 2. The image files are re-compressed versions of the video file and therefore lower in quality
 
+## Install
+
+```shell script
+pip install cvat_reader
+```
+
 ## Example
 
 ```python
