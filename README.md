@@ -44,3 +44,12 @@ with open_cvat("training.zip") as dataset:
             cv2.waitKey(0)
 
 ```
+
+
+## Support
+
+`cvat_reader` currently supports the following types of annotations:
+- BoundingBox
+
+Media types supported:
+- `.mp4`

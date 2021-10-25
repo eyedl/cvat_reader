@@ -199,6 +199,11 @@ class Dataset:
     def __del__(self):
         self.close()
 
+def cv2_can_read(filepath: str) -> bool:
+    capture = cv2.VideoCapture(filepath)
+    can_read = capture.is_opened()
+    capture.release()
+    return capture
 
 @contextmanager
 def open_cvat(filename: str) -> Dataset:
@@ -208,7 +213,10 @@ def open_cvat(filename: str) -> Dataset:
             zip_ref.extractall(dir_path)
         logger.info("Done")
 
-        video_files = glob.glob(f"{dir_path}/data/*")
+        video_files = [
+            filename for filename in glob.glob(f"{dir_path}/data/*")
+            if cv2_can_read(filename)
+        ]
         if not video_files:
             raise Exception("There are no video files")
 
