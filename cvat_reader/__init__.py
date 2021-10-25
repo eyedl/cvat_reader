@@ -5,11 +5,10 @@ import logging
 import shutil
 import tempfile
 import zipfile
-from collections import defaultdict
 from contextlib import contextmanager
 
 from dataclasses import dataclass
-from typing import List, Tuple, Union, Iterator, Dict, Optional
+from typing import List, Tuple, Iterator, Optional
 
 try:
     import numpy
@@ -199,11 +198,13 @@ class Dataset:
     def __del__(self):
         self.close()
 
+
 def cv2_can_read(filepath: str) -> bool:
     capture = cv2.VideoCapture(filepath)
-    can_read = capture.is_opened()
+    can_read = capture.isOpened()
     capture.release()
-    return capture
+    return can_read
+
 
 @contextmanager
 def open_cvat(filename: str) -> Dataset:

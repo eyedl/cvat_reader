@@ -51,5 +51,17 @@ with open_cvat("training.zip") as dataset:
 `cvat_reader` currently supports the following types of annotations:
 - BoundingBox
 
-Media types supported:
-- `.mp4`
+Media types supported: *all types cv2 supports*
+
+
+## Changelog
+
+### 0.1.1 (2021-10-25)
+
+Bugfix:
+- data directory sometimes contains non-video files. Those files should not be picked as video files. This bugfix solves this by verifying if cv2 can load the file. 
+
+### 0.1.0 (2021-10-22)
+
+Feature:
+- Properly read tracks and interpolate 
