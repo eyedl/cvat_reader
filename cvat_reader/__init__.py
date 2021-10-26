@@ -175,6 +175,9 @@ class Dataset:
 
     def __next__(self) -> Frame:
         self.current_frame = frame_id = self.capture.get(cv2.cv2.CAP_PROP_POS_FRAMES)
+        if self.current_frame >= self.frame_count:
+            raise StopIteration()
+
         success, image = self.capture.read()
 
         annotations = [
@@ -212,7 +215,6 @@ def open_cvat(filename: str) -> Dataset:
         logger.debug(f"Extracting {filename} to {dir_path}")
         with zipfile.ZipFile(filename, 'r') as zip_ref:
             zip_ref.extractall(dir_path)
-        logger.info("Done")
 
         video_files = [
             filename for filename in glob.glob(f"{dir_path}/data/*")

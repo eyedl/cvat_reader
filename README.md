@@ -56,6 +56,11 @@ Media types supported: *all types cv2 supports*
 
 ## Changelog
 
+### 0.1.2 (2021-10-26)
+
+Bugfix:
+- Stop iteration when last frame is reached
+
 ### 0.1.1 (2021-10-25)
 
 Bugfix:
