@@ -45,6 +45,34 @@ with open_cvat("training.zip") as dataset:
 
 ```
 
+By default the video is loaded and all image data is put in the `frame.image` attribute. When you are only interested in the data, or have an other way to process the video you can pass `load_video=False` to `open_cvat` and the images are not loaded. When you pass `load_video=False` this library does not depend on cv2 or numpy.
+
+
+```python
+
+from cvat_reader import open_cvat
+
+def process_annotations(frame_id, annotations):
+    ...
+
+with open_cvat("training.zip", load_video=False) as dataset:
+    print(dataset.labels)
+
+    labels = {}
+    for label in dataset.labels:
+        h = label['color'].lstrip('#')
+        labels[label['name']] = tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
+
+    for frame in dataset:
+        """
+        >>> frame.image
+        None
+        """
+        if frame.annotations:
+            process_annotations(frame.frame_id, frame.annotations)
+            
+
+```
 
 ## Support
 
