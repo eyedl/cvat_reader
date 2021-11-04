@@ -2,24 +2,14 @@ import json
 import glob
 
 import logging
+import os
 import shutil
 import tempfile
 import zipfile
 from contextlib import contextmanager
 
 from dataclasses import dataclass
-from typing import List, Tuple, Iterator, Optional
-
-try:
-    import numpy
-except ImportError as e:
-    raise RuntimeError("Numpy is required to use cvat_reader. You can install it using 'pip install numpy'") from e
-
-try:
-    import cv2
-except ImportError as e:
-    raise RuntimeError("cv2 is required to use cvat_reader. You can install it using 'pip install opencv-python'") from e
-
+from typing import List, Tuple, Iterator, Optional, Any
 
 logger = logging.getLogger(__name__)
 
@@ -103,7 +93,7 @@ class Track:
 @dataclass
 class Frame:
     frame_id: int
-    image: numpy.array
+    image: Any
     annotations: List[Annotation]
 
 
@@ -117,7 +107,7 @@ def temp_dir():
 
 
 class Dataset:
-    def __init__(self, task_file: str, annotations_file: str, video_file: str):
+    def __init__(self, task_file: str, annotations_file: str, video_file: str, load_video: bool):
         with open(task_file, 'r') as fp:
             json_data = json.load(fp)
             self.labels: List[dict] = json_data['labels']
@@ -155,14 +145,20 @@ class Dataset:
                         )
                     )
 
-        self.capture = cv2.VideoCapture(video_file)
-        self.frame_count = int(self.capture.get(cv2.cv2.CAP_PROP_FRAME_COUNT))
-        self.fps = self.capture.get(cv2.cv2.CAP_PROP_FPS)
-        self.current_frame = 0
+        if load_video:
+            from .video_reader.cv2_reader import CV2Reader
+            self.video_reader = CV2Reader(video_file)
+        else:
+            from .video_reader.dummy_reader import DummyVideoReader
+            self.video_reader = DummyVideoReader()
+
+        self.frame_count = max(
+            track.last_frame_id
+            for track in self.tracks
+        )
 
     def seek(self, frame_id: int):
-        self.capture.set(cv2.cv2.CAP_PROP_POS_FRAMES, frame_id)
-        self.current_frame = frame_id
+        self.video_reader.seek(frame_id)
 
     def seek_first_annotation(self):
         first_frame_id = min(
@@ -174,11 +170,9 @@ class Dataset:
         return self
 
     def __next__(self) -> Frame:
-        self.current_frame = frame_id = self.capture.get(cv2.cv2.CAP_PROP_POS_FRAMES)
-        if self.current_frame >= self.frame_count:
+        frame_id, image = self.video_reader.read_frame()
+        if frame_id >= self.frame_count:
             raise StopIteration()
-
-        success, image = self.capture.read()
 
         annotations = [
             track.get_annotation(frame_id)
@@ -193,24 +187,18 @@ class Dataset:
         )
 
     def close(self):
-        if self.capture:
-            logger.debug("Closing dataset")
-            self.capture.release()
-            self.capture = None
+        self.video_reader.close()
 
     def __del__(self):
         self.close()
 
 
-def cv2_can_read(filepath: str) -> bool:
-    capture = cv2.VideoCapture(filepath)
-    can_read = capture.isOpened()
-    capture.release()
-    return can_read
+def is_video_file(filepath: str) -> bool:
+    return os.path.splitext(filepath)[1] in ('.mp4', '.mpeg', '.mov', '.avi')
 
 
 @contextmanager
-def open_cvat(filename: str) -> Dataset:
+def open_cvat(filename: str, load_video: bool = True) -> Dataset:
     with temp_dir() as dir_path:
         logger.debug(f"Extracting {filename} to {dir_path}")
         with zipfile.ZipFile(filename, 'r') as zip_ref:
@@ -218,7 +206,7 @@ def open_cvat(filename: str) -> Dataset:
 
         video_files = [
             filename for filename in glob.glob(f"{dir_path}/data/*")
-            if cv2_can_read(filename)
+            if is_video_file(filename)
         ]
         if not video_files:
             raise Exception("There are no video files")
@@ -229,7 +217,8 @@ def open_cvat(filename: str) -> Dataset:
         dataset = Dataset(
             task_file=f"{dir_path}/task.json",
             annotations_file=f"{dir_path}/annotations.json",
-            video_file=video_file
+            video_file=video_file,
+            load_video=load_video
         )
 
         try:
