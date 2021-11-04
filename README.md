@@ -84,6 +84,11 @@ Media types supported: *all types cv2 supports*
 
 ## Changelog
 
+## 0.2.0 (2021-11-04)
+
+Feature:
+- Add `load_video` flag to `open_cvat` to specify if video should be loaded too. This removes the dependecy on cv2/numpy when you don't need the video, or use another tool for processing.
+
 ### 0.1.2 (2021-10-26)
 
 Bugfix:

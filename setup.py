@@ -8,7 +8,7 @@ def setup_package():
 
     setup(
         name="cvat_reader",
-        version="0.1.2",
+        version="0.2.0",
         author="Koen Vossen",
         author_email="info@koenvossen.nl",
         url="https://github.com/eyedl/cvat_reader",
@@ -31,7 +31,7 @@ def setup_package():
         ],
         install_requires=[
             'dataclasses;python_version<"3.7"',
-        ]
+        ],
     )
 
 

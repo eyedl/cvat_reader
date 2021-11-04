@@ -1,14 +1,11 @@
 from typing import Tuple, Any
 
 try:
-    import numpy
-except ImportError as e:
-    raise RuntimeError("Numpy is required to use cvat_reader. You can install it using 'pip install numpy'") from e
-
-try:
     import cv2
 except ImportError as e:
-    raise RuntimeError("cv2 is required to use cvat_reader. You can install it using 'pip install opencv-python'") from e
+    raise RuntimeError(
+        "cv2 is required to use cvat_reader. You can install it using 'pip install opencv-python'"
+    ) from e
 
 from .base import VideoReader
 
