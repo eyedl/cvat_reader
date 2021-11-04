@@ -79,6 +79,11 @@ Media types supported: *all types cv2 supports*
 
 ## Changelog
 
+## 0.2.1 (2021-11-04)
+
+Bugfix:
+- Include last frame
+
 ## 0.2.0 (2021-11-04)
 
 Feature:
