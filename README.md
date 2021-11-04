@@ -58,11 +58,6 @@ def process_annotations(frame_id, annotations):
 with open_cvat("training.zip", load_video=False) as dataset:
     print(dataset.labels)
 
-    labels = {}
-    for label in dataset.labels:
-        h = label['color'].lstrip('#')
-        labels[label['name']] = tuple(int(h[i:i + 2], 16) for i in (0, 2, 4))
-
     for frame in dataset:
         """
         >>> frame.image
