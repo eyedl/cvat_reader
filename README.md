@@ -79,7 +79,7 @@ Media types supported: *all types cv2 supports*
 
 ## Changelog
 
-## 0.3.0 (2021-12-04)
+## 0.3.0 (2021-12-03)
 
 Feature:
 - Add `occluded`, `outside` and `attributes` to `Annotation`. When `Annotation` is interpolated the `occluded`, `outside` and `attributes` fields are copied from the *first* non-interpolated annotation.
