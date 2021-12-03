@@ -79,10 +79,16 @@ Media types supported: *all types cv2 supports*
 
 ## Changelog
 
+## 0.3.0 (2021-12-04)
+
+Feature:
+- Add `occluded`, `outside` and `attributes` to `Annotation`. When `Annotation` is interpolated the `occluded`, `outside` and `attributes` fields are copied from the *first* non-interpolated annotation.
+
 ## 0.2.1 (2021-11-04)
 
 Bugfix:
 - Include last frame
+- Include `video_file` in `Dataset`
 
 ## 0.2.0 (2021-11-04)
 

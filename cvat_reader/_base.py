@@ -20,6 +20,9 @@ class Annotation:
     track_id: int
     label: str
     bounding_box: Tuple[Tuple[int, int], Tuple[int, int]]
+    occluded: bool
+    outside: bool
+    attributes: dict
     interpolated: bool
 
     @classmethod
@@ -34,6 +37,9 @@ class Annotation:
             frame_id=frame_id,
             track_id=begin_annotation.track_id,
             label=begin_annotation.label,
+            occluded=begin_annotation.occluded,
+            outside=begin_annotation.outside,
+            attributes=begin_annotation.attributes,
             interpolated=True,
             bounding_box=(
                 (
@@ -159,6 +165,9 @@ class Dataset:
                             label=track["label"],
                             bounding_box=((int(x1), int(y1)), (int(x2), int(y2))),
                             interpolated=False,
+                            occluded=shape['occluded'],
+                            outside=shape['outside'],
+                            attributes=shape['attributes']
                         )
                         annotations.append(annotation)
                     else:
@@ -178,6 +187,7 @@ class Dataset:
 
             self.video_reader = DummyVideoReader()
 
+        self.video_file = video_file
         self.last_frame_id = max(track.last_frame_id for track in self.tracks)
 
     def seek(self, frame_id: int):
