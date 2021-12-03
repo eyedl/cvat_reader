@@ -9,7 +9,9 @@ import zipfile
 from contextlib import contextmanager
 
 from dataclasses import dataclass
-from typing import List, Tuple, Iterator, Optional, Any
+from typing import List, Tuple, Optional, Any, ContextManager, Iterable
+
+from cvat_reader.video_reader.base import VideoReader
 
 logger = logging.getLogger(__name__)
 
@@ -139,7 +141,7 @@ def temp_dir():
         shutil.rmtree(dir_path)
 
 
-class Dataset:
+class Dataset(Iterable[Frame]):
     def __init__(
         self, task_file: str, annotations_file: str, video_file: str, load_video: bool
     ):
@@ -165,9 +167,9 @@ class Dataset:
                             label=track["label"],
                             bounding_box=((int(x1), int(y1)), (int(x2), int(y2))),
                             interpolated=False,
-                            occluded=shape['occluded'],
-                            outside=shape['outside'],
-                            attributes=shape['attributes']
+                            occluded=shape["occluded"],
+                            outside=shape["outside"],
+                            attributes=shape["attributes"],
                         )
                         annotations.append(annotation)
                     else:
@@ -181,7 +183,7 @@ class Dataset:
         if load_video:
             from .video_reader.cv2_reader import CV2Reader
 
-            self.video_reader = CV2Reader(video_file)
+            self.video_reader: VideoReader = CV2Reader(video_file)
         else:
             from .video_reader.dummy_reader import DummyVideoReader
 
@@ -197,7 +199,7 @@ class Dataset:
         first_frame_id = min(track.first_frame_id for track in self.tracks)
         self.seek(first_frame_id)
 
-    def __iter__(self) -> Iterator[Frame]:
+    def __iter__(self) -> "Dataset":
         return self
 
     def __next__(self) -> Frame:
@@ -224,37 +226,47 @@ def is_video_file(filepath: str) -> bool:
     return os.path.splitext(filepath)[1] in (".mp4", ".mpeg", ".mov", ".avi")
 
 
-@contextmanager
-def open_cvat(filename: str, load_video: bool = True) -> Dataset:
-    with temp_dir() as dir_path:
-        logger.debug(f"Extracting {filename} to {dir_path}")
-        with zipfile.ZipFile(filename, "r") as zip_ref:
-            zip_ref.extractall(dir_path)
+def open_cvat(filename: str, load_video: bool = True) -> ContextManager[Dataset]:
+    """
+    This code uses a ugly hack described here:
+    https://stackoverflow.com/questions/49335263/how-to-properly-annotate-a-contextmanager-in-pycharm#answer-56611439
+    The hack is needed because PyCharm isn't able to infer the types of a contextmanager correctly. See
+    bug report: https://youtrack.jetbrains.com/issue/PY-36444
+    """
 
-        video_files = [
-            filename
-            for filename in glob.glob(f"{dir_path}/data/*")
-            if is_video_file(filename)
-        ]
-        if not video_files:
-            raise Exception("There are no video files")
+    @contextmanager
+    def _open(filename, load_video):
+        with temp_dir() as dir_path:
+            logger.debug(f"Extracting {filename} to {dir_path}")
+            with zipfile.ZipFile(filename, "r") as zip_ref:
+                zip_ref.extractall(dir_path)
 
-        video_file = video_files[0]
-        logger.debug(f"Going to read video frame {video_file}")
+            video_files = [
+                filename
+                for filename in glob.glob(f"{dir_path}/data/*")
+                if is_video_file(filename)
+            ]
+            if not video_files:
+                raise Exception("There are no video files")
 
-        dataset = Dataset(
-            task_file=f"{dir_path}/task.json",
-            annotations_file=f"{dir_path}/annotations.json",
-            video_file=video_file,
-            load_video=load_video,
-        )
+            video_file = video_files[0]
+            logger.debug(f"Going to read video frame {video_file}")
 
-        try:
-            yield dataset
-        finally:
-            dataset.close()
+            dataset = Dataset(
+                task_file=f"{dir_path}/task.json",
+                annotations_file=f"{dir_path}/annotations.json",
+                video_file=video_file,
+                load_video=load_video,
+            )
 
-        logger.debug("Cleaning temp directory")
+            try:
+                yield dataset
+            finally:
+                dataset.close()
+
+            logger.debug("Cleaning temp directory")
+
+    return _open(filename, load_video)
 
 
 __all__ = ["open_cvat", "Annotation", "Dataset", "Frame"]

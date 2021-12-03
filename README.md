@@ -79,6 +79,11 @@ Media types supported: *all types cv2 supports*
 
 ## Changelog
 
+## 0.3.1 (2021-12-03)
+
+Bugfix:
+- Fix typing
+
 ## 0.3.0 (2021-12-03)
 
 Feature:
