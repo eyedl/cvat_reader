@@ -185,14 +185,12 @@ class Dataset(Iterable[Frame]):
             from .video_reader.cv2_reader import CV2Reader
 
             self.video_reader: CV2Reader = CV2Reader(video_file)
-            self.last_frame_id = int(self.video_reader.capture.get(7))
+            self.last_frame_id = self.video_reader.get_number_of_frames()
         else:
             from .video_reader.dummy_reader import DummyVideoReader
 
             self.video_reader = DummyVideoReader()
             self.last_frame_id = max(track.last_frame_id for track in self.tracks)
-
-
 
     def seek(self, frame_id: int):
         self.video_reader.seek(frame_id)
