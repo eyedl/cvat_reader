@@ -26,3 +26,6 @@ class CV2Reader(VideoReader):
         if self.capture:
             self.capture.release()
             self.capture = None
+
+    def get_number_of_frames(self) -> int:
+        return int(self.capture.get(cv2.CAP_PROP_FRAME_COUNT))

@@ -179,18 +179,18 @@ class Dataset(Iterable[Frame]):
                     self.tracks.append(
                         Track(track_id=track_id, annotations=annotations)
                     )
+        self.video_file = video_file
 
         if load_video:
             from .video_reader.cv2_reader import CV2Reader
 
-            self.video_reader: VideoReader = CV2Reader(video_file)
+            self.video_reader: CV2Reader = CV2Reader(video_file)
+            self.last_frame_id = self.video_reader.get_number_of_frames()
         else:
             from .video_reader.dummy_reader import DummyVideoReader
 
             self.video_reader = DummyVideoReader()
-
-        self.video_file = video_file
-        self.last_frame_id = max(track.last_frame_id for track in self.tracks)
+            self.last_frame_id = max(track.last_frame_id for track in self.tracks)
 
     def seek(self, frame_id: int):
         self.video_reader.seek(frame_id)
@@ -204,7 +204,7 @@ class Dataset(Iterable[Frame]):
 
     def __next__(self) -> Frame:
         frame_id, image = self.video_reader.read_frame()
-        if frame_id > self.last_frame_id:
+        if frame_id >= self.last_frame_id:
             raise StopIteration()
 
         annotations = [track.get_annotation(frame_id) for track in self.tracks if track]
