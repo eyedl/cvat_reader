@@ -15,7 +15,7 @@ class CV2Reader(VideoReader):
         self.capture = cv2.VideoCapture(video_file)
 
     def read_frame(self) -> Tuple[int, Any]:
-        frame_id = self.capture.get(cv2.CAP_PROP_POS_FRAMES)
+        frame_id = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
         success, image = self.capture.read()
         return frame_id, image
 
