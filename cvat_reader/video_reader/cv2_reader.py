@@ -1,4 +1,4 @@
-from typing import Tuple, Any
+from typing import Tuple, Any, Optional
 
 try:
     import cv2
@@ -14,10 +14,13 @@ class CV2Reader(VideoReader):
     def __init__(self, video_file: str):
         self.capture = cv2.VideoCapture(video_file)
 
-    def read_frame(self) -> Tuple[int, Any]:
+    def read_frame(self) -> Tuple[Optional[int], Any]:
         frame_id = int(self.capture.get(cv2.CAP_PROP_POS_FRAMES))
         success, image = self.capture.read()
-        return frame_id, image
+        if success:
+            return frame_id, image
+        else:
+            return None, None
 
     def seek(self, frame_id: int):
         self.capture.set(cv2.CAP_PROP_POS_FRAMES, frame_id)

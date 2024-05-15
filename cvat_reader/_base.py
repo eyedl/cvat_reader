@@ -185,7 +185,8 @@ class Dataset(Iterable[Frame]):
             from .video_reader.cv2_reader import CV2Reader
 
             self.video_reader: CV2Reader = CV2Reader(video_file)
-            self.last_frame_id = self.video_reader.get_number_of_frames()
+            self.last_frame_id = self.video_reader.get_number_of_frames()  # May be inaccurate
+
         else:
             from .video_reader.dummy_reader import DummyVideoReader
 
@@ -204,6 +205,9 @@ class Dataset(Iterable[Frame]):
 
     def __next__(self) -> Frame:
         frame_id, image = self.video_reader.read_frame()
+        # frame_id is passed as None in VideoReader
+        if frame_id is None:
+            raise StopIteration()
         if frame_id >= self.last_frame_id:
             raise StopIteration()
 
